@@ -74,7 +74,7 @@ fi
 
 # 7. Check if the hook is already wired up (by path match)
 ALREADY_INSTALLED=$(jq --arg path "$HOOK_PATH" \
-  '((.hooks.UserPromptSubmit // []) | map(.args[0]? // "") | index($path)) != null' \
+  '((.hooks.UserPromptSubmit // []) | [.[].hooks[]?.command // ""] | index($path)) != null' \
   "$SETTINGS_FILE")
 
 if [[ "$ALREADY_INSTALLED" == "true" ]]; then
@@ -91,7 +91,7 @@ else
   jq --arg path "$HOOK_PATH" \
     '.hooks = (.hooks // {}) |
      .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) +
-       [{command: "bash", args: [$path]}])' \
+       [{hooks: [{type: "command", command: $path}]}])' \
     "$SETTINGS_FILE" > "$TMP_FILE"
 
   # Validate the result is still valid JSON before replacing

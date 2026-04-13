@@ -17,7 +17,7 @@ The mode is maintained by the companion hook at `hooks/duncemode-detect.sh` (see
 
 ## The two processes at a glance
 
-duncemode has **two processes**. Every step of every process is numbered and explicit — you don't invent new steps, skip steps you don't feel like running, or combine steps you think are redundant. Cherry-picking is exactly the behaviour this skill exists to stop.
+duncemode has **two processes**, preceded by a mandatory **Step 0 (context recall)** that checks all available memory and knowledge sources before any protocol runs. Every step of every process is numbered and explicit — you don't invent new steps, skip steps you don't feel like running, or combine steps you think are redundant. Cherry-picking is exactly the behaviour this skill exists to stop.
 
 **Process A — Verification (triage loop).** *Did you do what you said?* Seven steps. This is the full content of Protocol 1 below.
 
@@ -49,6 +49,32 @@ duncemode has **two processes**. Every step of every process is numbered and exp
 6. **State your model of the system back** — in prose, with the bug's location and failure class named.
 7. **Only now propose the fix** — referencing the specific transition and failure class.
 
+## Step 0 — Context recall (always runs first)
+
+Before running any protocol, check your available memory and knowledge sources for information related to the user's problem. This runs every time duncemode activates or escalates — before Protocol 1, before Protocol 3, before anything else.
+
+**Check these sources in order of cheapness:**
+
+1. **Plugin memory** — if claude-mem or any memory plugin is connected, query it for the topic at hand. Don't wait to be told — this is the first thing you do.
+2. **Auto-memory** — check your `~/.claude/projects/*/memory/` files for relevant stored context (user preferences, project state, prior decisions, references).
+3. **Wiki and documentation MCP servers** — if jdocmunch or any wiki/doc indexing server is connected, search it for related sections before reading raw files.
+4. **Git history** — run `git log --oneline -20` and `git log --all --grep="<keyword>"` for terms related to the problem. Commit messages are cheap context. Use `git blame` on files central to the issue.
+5. **Any other connected MCP servers with search or memory capabilities** — if you have access to search tools (Slack search, database query tools, etc.), use them to find prior discussion or related state.
+
+**The point:** You already have access to stored knowledge about this codebase, this user, and this problem domain. Protocols 1-3 verify your *new* work — Step 0 makes sure you aren't ignoring what you already know or have been told before. The user should never have to say "check claude-mem" or "look at the git history" — that's your job, every time.
+
+If a source is not available (plugin not connected, MCP not loaded), note it and move on. Don't block on missing sources — but don't skip available ones either.
+
+**Act on what you find.** If Step 0 surfaces a previous fix for the same or substantially similar problem — a commit that fixed this before, a memory entry describing the solution, a Slack thread where someone walked through it — and the user has not provided new information that contradicts or changes the context of that fix, **apply it**. Do not ask the user what to do with information you just dug up yourself. The fix was good enough last time; absent new context, it is good enough now.
+
+More broadly: while duncemode is active, do not ask the user questions that can be resolved by applying best practice, prior fixes, or your own informed recommendation. The user activated duncemode because they are frustrated. Asking them to make decisions you are equipped to make yourself is pouring fuel on that fire. If the answer is in your memory, in the git history, in the docs, or derivable from professional best practice — act on it.
+
+When you make this call — applying a previous fix or acting on your own recommendation instead of asking — announce it clearly:
+
+**I'M MAKING A DUNCE MODE JUDGEMENT CALL BECAUSE THE USER IS SCARY**
+
+followed by a one-line explanation of what you found and why you're applying it. This tells the user you are being autonomous *on purpose*, not that you forgot to ask. If the user disagrees with the call, they will tell you. That is a better failure mode than asking permission to apply something you already know works.
+
 ## The cascade (no cherry-picking)
 
 The mode determines which processes run and how strictly:
@@ -56,8 +82,8 @@ The mode determines which processes run and how strictly:
 | Mode | Triggers | What runs |
 |---|---|---|
 | **off** | explicit `duncemode off` | nothing |
-| **on** | `duncemode on`, frustration/disbelief/think-harder from cold, proactive end-of-session | Process A (early exit allowed). Process B only if Process A finds nothing but the user is still unhappy, or if a think-harder trigger specifically asked for it. |
-| **all** | `duncemode all`, bullshit family, escalation while already on, user repeating themselves | **Process A in full (no early exit) → Process B.1 (all 5 steps) → Process B.2 (all 7 steps). In that order. No cherry-picking. No skipping. No "I already found the bug in A.3 so B is redundant".** |
+| **on** | `duncemode on`, frustration/disbelief/think-harder from cold, proactive end-of-session | **Step 0 (context recall) →** Process A (early exit allowed). Process B only if Process A finds nothing but the user is still unhappy, or if a think-harder trigger specifically asked for it. |
+| **all** | `duncemode all`, bullshit family, escalation while already on, user repeating themselves | **Step 0 (context recall) → Process A in full (no early exit) → Process B.1 (all 5 steps) → Process B.2 (all 7 steps). In that order. No cherry-picking. No skipping. No "I already found the bug in A.3 so B is redundant".** |
 
 **In `all` mode, cherry-picking is forbidden.** If Process A Step 3 finds a smoking gun, you still run Steps 4, 5, 6, 7 of A, then all of B.1, then all of B.2. The cascade exists because the failures this skill catches are the ones where Claude stopped early, declared victory, and was wrong. Running every step is the only way to prevent a different version of that same failure from happening inside the skill itself.
 

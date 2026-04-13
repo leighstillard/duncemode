@@ -130,8 +130,13 @@ fi
 
 # Emit the system line on stdout — Claude Code will inject this into context.
 # Always emit something so Claude can see current state, even if unchanged.
+ANNOUNCE=""
+if [[ "$CURRENT_MODE" == "off" && ("$NEW_MODE" == "on" || "$NEW_MODE" == "all") ]]; then
+  ANNOUNCE=" IMPORTANT: Begin your next response with '**DUNCE MODE ACTIVATE**' on its own line."
+fi
+
 if [[ -n "$REASON" ]]; then
-  echo "[SYSTEM: duncemode hook] mode=${NEW_MODE} (was ${CURRENT_MODE}) — ${REASON}. Follow the duncemode skill routing for mode '${NEW_MODE}'."
+  echo "[SYSTEM: duncemode hook] mode=${NEW_MODE} (was ${CURRENT_MODE}) — ${REASON}. Follow the duncemode skill routing for mode '${NEW_MODE}'.${ANNOUNCE}"
 else
   echo "[SYSTEM: duncemode hook] mode=${CURRENT_MODE} (no change)"
 fi

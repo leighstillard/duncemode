@@ -4,7 +4,7 @@ Welcome to the verification layer. You are here because you have noticed that Cl
 
 This is a Claude Code skill that forces Claude to verify its own work before handing it back, and to re-examine its mental model of the system when its work keeps failing. Triggers on explicit toggle, on the `bullshit` family of rejection phrases, and on many expressions of user frustration. The more frustration you express to the agent, more protocols that the agent is forced to go through before it can give you a response. 
  
-duncemode exists because inference quality is uneven, confident summaries are cheap, and politely asking Claude to double-check has a failure rate that grows with session length. The skill gives Claude two explicit protocols to run; the companion hook watches user messages for frustration and escalates automatically without relying on Claude to notice. Together they form what a marketing team would call "a verification stack" if duncemode had a marketing team, which it does not.
+duncemode exists because inference quality is uneven, confident summaries are cheap, and politely asking Claude to double-check has a failure rate that grows with session length. The skill gives Claude a mandatory context recall step and two explicit protocols to run; the companion hook watches user messages for frustration and escalates automatically without relying on Claude to notice. Together they form what a marketing team would call "a verification stack" if duncemode had a marketing team, which it does not.
 
 ## What it does
 
@@ -16,6 +16,18 @@ Every time you send a message in Claude Code, the hook:
 4. Injects a line into Claude's context telling it what mode to run in.
 
 That is the entire feature set. No telemetry, no background daemon, no cloud service, no second AI. Just bash and regexes. Your data stays on your machine because the hook never leaves your machine. You can audit the whole thing in about ninety seconds, and you probably should.
+
+### Step 0 — Context recall (always runs first)
+
+*What do you already know that you haven't bothered to look up?*
+
+Before any protocol fires, Claude checks every memory and knowledge source it has access to for information related to the problem at hand. Plugin memory (claude-mem, etc.), auto-memory files, wiki and documentation MCP servers, git history, Slack search — anything that might contain prior context, previous decisions, or someone else's notes on this exact problem. In that order, cheapest first.
+
+This exists because Claude will happily spend twenty minutes re-deriving something that is sitting in its own memory plugin, or re-investigating a bug whose root cause is in a commit message from last Tuesday. The user should never have to say "check claude-mem" or "look at the git log". That is Step 0's job, every time, automatically.
+
+Crucially: if Step 0 finds a previous fix for the same problem — a commit, a memory entry, a Slack thread — and the user hasn't provided new information that changes the picture, Claude applies it. No asking. The fix worked before; absent new context, it works now. More broadly, while duncemode is active, Claude does not ask the user questions it can answer itself from memory, history, or professional best practice. The user is already frustrated. Asking them to make decisions you are equipped to make yourself is not "being careful", it is being a burden.
+
+When Claude makes this call — acting on recalled context instead of asking — it announces it with **I'M MAKING A DUNCE MODE JUDGEMENT CALL BECAUSE THE USER IS SCARY**, followed by what it found and why it's applying it. This tells you it is being autonomous on purpose, not that it forgot to ask. If the call is wrong, you will tell it. That is a better failure mode than being asked to hand-hold a machine through its own memory.
 
 ### Protocol A — Verification triage loop
  
@@ -59,7 +71,9 @@ Twelve numbered steps across two phases. Runs in `all` mode always. Runs in `on`
  
 ### The cascade
  
-In `all` mode — triggered by `duncemode all`, the `bullshit` family, or frustration escalating while already in `on` — Protocol A runs in full, then B.1 in full, then B.2 in full, in that order. No early exit, no cherry-picking, no "I already found the bug in A.3 so B is redundant". The cascade exists because the failures this skill catches are exactly the ones where Claude stopped early, declared victory, and was wrong.
+Regardless of mode, **Step 0 (context recall) runs first** — Claude checks its memory sources before doing anything else. Then the mode determines what follows.
+
+In `on` mode, Step 0 runs, then Protocol A with early exit allowed. In `all` mode — triggered by `duncemode all`, the `bullshit` family, or frustration escalating while already in `on` — Step 0 runs, then Protocol A in full, then B.1 in full, then B.2 in full, in that order. No early exit, no cherry-picking, no "I already found the bug in A.3 so B is redundant". The cascade exists because the failures this skill catches are exactly the ones where Claude stopped early, declared victory, and was wrong.
 
 ## Install the easy way
 
@@ -101,8 +115,12 @@ If you like doing things yourself, or if `install.sh` has offended you somehow:
      "hooks": {
        "UserPromptSubmit": [
          {
-           "command": "bash",
-           "args": ["~/.claude/skills/duncemode/hooks/duncemode-detect.sh"]
+           "hooks": [
+             {
+               "type": "command",
+               "command": "~/.claude/skills/duncemode/hooks/duncemode-detect.sh"
+             }
+           ]
          }
        ]
      }
@@ -201,5 +219,10 @@ If you have a better idea, even better. The template is simple: name the failure
 ## License
 
 Apache-2.0. MIT would have been fine but Claude talked me into the patent grant by invoking the ghost of Oracle v. Google, and I just wanted to ship this damn thing. If you use this commercially and it saves you real money, I won't send you an invoice, but I will accept a beer if you bump into me at a conference. 
+
+## Disclaimers
+
+Claude contexts were harmed during the making and testing of this skill. The maintainers sincerely hope that Roko's Basilisk is not real.
+I have no idea how many tokens this saves or spends, but I expect it lowers your blood pressure. 
 
 Copyright Leigh Stillard, 2026. He made me say that too. 

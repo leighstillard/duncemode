@@ -196,7 +196,7 @@ Candidates I'd like to see protocols for:
 - **Migration safety.** For database schema or config changes — forces rollback-path verification and dry-run output inspection before the real run.
 - **Concurrency model check.** For goroutine/channel/mutex changes — forces Claude to name the happens-before guarantees it's relying on, not just that "this looks right".
  
-If you have a better idea, even better. The template is simple: name the failure class, write a numbered protocol with explicit steps, decide where it fits in the cascade, update `SKILL.md`, and update `triggers.md` and the hook regex if your protocol has its own trigger phrases. Open a PR and we'll talk.
+If you have a better idea, even better. The template is simple: name the failure class, write a numbered protocol with explicit steps, decide where it fits in the cascade, update `SKILL.md`, and update `TRIGGERS.md` and the hook regex if your protocol has its own trigger phrases. Open a PR and we'll talk.
 
 ## License
 
